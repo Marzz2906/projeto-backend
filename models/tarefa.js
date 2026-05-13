@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+const subTarefaSchema = new mongoose.Schema({
+  descricao: { type: String, required: true },
+  statusRealizada: { type: Boolean, default: false }
+});
+
 const schemaTarefa = new mongoose.Schema({
   descricao: {
     required: true,
@@ -9,12 +14,17 @@ const schemaTarefa = new mongoose.Schema({
     required: true,
     type: Boolean
   },
-  // Novo campo para vincular ao usuário
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Usuario',
     required: true
-  }
+  },
+  prioridade: {
+    type: String,
+    enum: ['Alta', 'Média', 'Baixa'],
+    default: 'Baixa'
+  },
+  subTarefas: [subTarefaSchema]
 }, {
   versionKey: false
 });

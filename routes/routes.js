@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const router = express.Router()
 module.exports = router;
@@ -52,8 +52,9 @@ router.post('/register', async (req, res) => {
   try {
     const { nome, senha, role } = req.body;
 
-    const salt = await bcrypt.genSalt(10);
-    const senhaHash = await bcrypt.hash(senha, salt);
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(senha, salt, 64).toString('hex');
+    const senhaHash = `${salt}:${hash}`;
 
     const totalUsuarios = await Usuario.countDocuments();
     
@@ -77,7 +78,16 @@ router.post('/login', async (req, res) => {
     const usuario = await Usuario.findOne({ nome: req.body.nome });
     if (!usuario) return res.status(401).json({ message: 'Usuário não encontrado' });
 
-    const senhaValida = await bcrypt.compare(req.body.senha, usuario.senha);
+    let senhaValida = false;
+    if (usuario.senha.includes(':')) {
+      const [salt, hash] = usuario.senha.split(':');
+      const hashVerificar = crypto.scryptSync(req.body.senha, salt, 64).toString('hex');
+      senhaValida = hash === hashVerificar;
+    } else {
+      // Fallback in case there are old cleartext/bcrypt passwords for testing, just reject them
+      return res.status(401).json({ message: 'Senha inválida ou formato de criptografia antigo' });
+    }
+
     if (!senhaValida) return res.status(401).json({ message: 'Senha incorreta' });
 
     const token = jwt.sign(
@@ -125,7 +135,9 @@ router.post('/post', verificaJWT, async (req, res) => {
   const objetoTarefa = new modeloTarefa({
     descricao: req.body.descricao,
     statusRealizada: req.body.statusRealizada,
-    owner: req.usuarioId // Vincula a tarefa ao usuário logado
+    owner: req.usuarioId, // Vincula a tarefa ao usuário logado
+    prioridade: req.body.prioridade || 'Baixa',
+    subTarefas: req.body.subTarefas || []
   });
   try {
     const tarefaSalva = await objetoTarefa.save();
