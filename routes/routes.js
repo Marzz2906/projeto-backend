@@ -94,8 +94,16 @@ router.post('/login', async (req, res) => {
       const hashVerificar = crypto.scryptSync(req.body.senha, salt, 64).toString('hex');
       senhaValida = hash === hashVerificar;
     } else {
-      // Fallback in case there are old cleartext/bcrypt passwords for testing, just reject them
-      return res.status(401).json({ message: 'Senha inválida ou formato de criptografia antigo' });
+      // Fallback para senhas antigas em texto limpo
+      senhaValida = (usuario.senha === req.body.senha);
+      
+      // Auto-migrar para senha criptografada se for válida
+      if (senhaValida) {
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = crypto.scryptSync(req.body.senha, salt, 64).toString('hex');
+        usuario.senha = `${salt}:${hash}`;
+        await usuario.save();
+      }
     }
 
     if (!senhaValida) return res.status(401).json({ message: 'Senha incorreta' });
