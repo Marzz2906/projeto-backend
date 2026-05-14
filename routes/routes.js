@@ -44,13 +44,7 @@ router.delete('/usuario/:id', verificaADM, async (req, res) => {
 // Atualizar usuário (Apenas ADM)
 router.patch('/usuario/:id', verificaADM, async (req, res) => {
   try {
-    const updateData = { ...req.body };
-    if (updateData.senha) {
-      const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.scryptSync(updateData.senha, salt, 64).toString('hex');
-      updateData.senha = `${salt}:${hash}`;
-    }
-    const result = await Usuario.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    const result = await Usuario.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
