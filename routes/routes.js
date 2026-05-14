@@ -150,7 +150,6 @@ router.post('/post', verificaJWT, async (req, res) => {
   const objetoTarefa = new modeloTarefa({
     descricao: req.body.descricao,
     statusRealizada: req.body.statusRealizada,
-    owner: req.usuarioId, // Vincula a tarefa ao usuário logado
     prioridade: req.body.prioridade || 'Baixa',
     subTarefas: req.body.subTarefas || []
   });
@@ -164,8 +163,7 @@ router.post('/post', verificaJWT, async (req, res) => {
 
 router.get('/getAll', verificaJWT, async (req, res) => {
   try {
-    // Busca apenas as tarefas que pertencem ao usuário logado
-    const resultados = await modeloTarefa.find({ owner: req.usuarioId });
+    const resultados = await modeloTarefa.find({});
     res.json(resultados);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -175,10 +173,8 @@ router.get('/getAll', verificaJWT, async (req, res) => {
 // Deletar
 router.delete('/delete/:id', verificaJWT, async (req, res) => {
   try {
-    // Filtra pelo ID da tarefa E pelo dono
     const resultado = await modeloTarefa.findOneAndDelete({
-      _id: req.params.id,
-      owner: req.usuarioId
+      _id: req.params.id
     });
     res.json(resultado);
   } catch (error) {
@@ -190,7 +186,7 @@ router.delete('/delete/:id', verificaJWT, async (req, res) => {
 router.patch('/update/:id', verificaJWT, async (req, res) => {
   try {
     const result = await modeloTarefa.findOneAndUpdate(
-      { _id: req.params.id, owner: req.usuarioId },
+      { _id: req.params.id },
       req.body,
       { new: true }
     );
