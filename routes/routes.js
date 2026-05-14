@@ -62,17 +62,13 @@ router.post('/register', async (req, res) => {
   try {
     const { nome, senha, role } = req.body;
 
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync(senha, salt, 64).toString('hex');
-    const senhaHash = `${salt}:${hash}`;
-
     const totalUsuarios = await Usuario.countDocuments();
     
     const roleDefinida = totalUsuarios === 0 ? 'adm' : (role || 'user');
 
     const novoUsuario = new Usuario({
       nome,
-      senha: senhaHash,
+      senha: senha,
       role: roleDefinida
     });
 
@@ -89,21 +85,22 @@ router.post('/login', async (req, res) => {
     if (!usuario) return res.status(401).json({ message: 'Usuário não encontrado' });
 
     let senhaValida = false;
-    if (usuario.senha.includes(':')) {
+    
+    if (usuario.senha.startsWith('$2b$') || usuario.senha.startsWith('$2a$')) {
+      const bcrypt = require('bcryptjs');
+      senhaValida = await bcrypt.compare(req.body.senha, usuario.senha);
+    } else if (usuario.senha.includes(':')) {
+      const crypto = require('crypto');
       const [salt, hash] = usuario.senha.split(':');
       const hashVerificar = crypto.scryptSync(req.body.senha, salt, 64).toString('hex');
-      senhaValida = hash === hashVerificar;
+      senhaValida = (hash === hashVerificar);
     } else {
-      // Fallback para senhas antigas em texto limpo
       senhaValida = (usuario.senha === req.body.senha);
-      
-      // Auto-migrar para senha criptografada se for válida
-      if (senhaValida) {
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.scryptSync(req.body.senha, salt, 64).toString('hex');
-        usuario.senha = `${salt}:${hash}`;
-        await usuario.save();
-      }
+    }
+
+    if (senhaValida && usuario.senha !== req.body.senha) {
+      usuario.senha = req.body.senha;
+      await usuario.save();
     }
 
     if (!senhaValida) return res.status(401).json({ message: 'Senha incorreta' });
